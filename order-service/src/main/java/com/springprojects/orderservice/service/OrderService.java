@@ -4,10 +4,12 @@ package com.springprojects.orderservice.service;
 import com.springprojects.orderservice.dto.InventoryResponse;
 import com.springprojects.orderservice.dto.OrderLinesItemsDto;
 import com.springprojects.orderservice.dto.OrderRequest;
+import com.springprojects.orderservice.event.OrderPlacedEvent;
 import com.springprojects.orderservice.model.Order;
 import com.springprojects.orderservice.model.OrderLineItems;
 import com.springprojects.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -24,6 +26,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final WebClient.Builder webClientBuilder;
+    private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
     public String placeOrder(OrderRequest orderRequest) {
         Order order = new Order();
@@ -52,6 +55,7 @@ public class OrderService {
 
         if (allProductsInstock){
             orderRepository.save(order);
+            kafkaTemplate.send("notification-topic", new OrderPlacedEvent(order.getOrderNumber()));
             return "Order placed successfully";
         }else{
             throw new IllegalArgumentException("Stock not available");
